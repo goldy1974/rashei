@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rashei · ראשי</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rashei">
+<meta name="theme-color" content="#14110d">
+<style>
+:root{--bg:#14110d;--card:#1f1a14;--gold:#e0b55a;--txt:#f3ead8;--mut:#a89c86;--hl:#3a2d12;--unk:#4a1f1f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:17px/1.5 -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 14px 40px}
+h1{font-size:24px;margin:14px 0 4px;color:var(--gold)}h1 span{font-family:"Times New Roman",serif}
+.sub{color:var(--mut);font-size:14px;margin:0 0 14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+button,label.btn{flex:1 1 45%;min-height:54px;border:0;border-radius:14px;background:var(--gold);color:#1a1408;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.sec{background:#2c251b;color:var(--txt)}
+input[type=file]{display:none}
+textarea{width:100%;min-height:130px;margin:12px 0;border-radius:14px;border:1px solid #3b3226;background:var(--card);color:var(--txt);font:22px/1.6 "Times New Roman",serif;padding:12px;direction:rtl}
+#status{color:var(--mut);font-size:14px;min-height:20px}
+progress{width:100%;height:8px;display:none}
+#preview{max-width:100%;border-radius:12px;display:none;margin-top:10px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-top:14px}
+.heb{direction:rtl;font:24px/2 "Times New Roman",serif}
+.heb .ab{background:var(--hl);color:var(--gold);border-radius:6px;padding:1px 5px;cursor:pointer;border-bottom:2px solid var(--gold)}
+.heb .uk{background:var(--unk);border-radius:6px;padding:1px 5px}
+.eng{margin-top:10px;font-size:18px;color:var(--txt)}
+.eng b{color:var(--gold)}.eng i{color:var(--mut)}
+h3{margin:0 0 8px;font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+ul{list-style:none;padding:0;margin:0}li{padding:9px 0;border-top:1px solid #2e271d}
+li .a{font:22px "Times New Roman",serif;color:var(--gold);direction:rtl}li .f{direction:rtl;font:19px "Times New Roman",serif}li .e{color:var(--mut)}
+#search{width:100%;min-height:48px;border-radius:12px;border:1px solid #3b3226;background:var(--card);color:var(--txt);font-size:19px;padding:8px 12px;direction:rtl}
+</style></head><body>
+<h1>Rashei <span>· ראשי תיבות</span></h1>
+<p class="sub">Photograph or paste Hebrew. Abbreviations are expanded and highlighted; other words get an English gloss.</p>
+<div class="row">
+ <label class="btn" for="cam">📷 Take photo</label>
+ <label class="btn sec" for="pick">🖼️ Choose photo</label>
+</div>
+<input id="cam" type="file" accept="image/*" capture="environment">
+<input id="pick" type="file" accept="image/*">
+<img id="preview" alt="">
+<progress id="prog" max="1" value="0"></progress>
+<div id="status"></div>
+<textarea id="in" dir="rtl" placeholder="הדבק או הקלד טקסט כאן…"></textarea>
+<div class="row"><button id="go">Expand &amp; translate</button><button class="sec" id="demo">Demo text</button></div>
+<div id="out"></div>
+<div class="card"><h3>Dictionary</h3><input id="search" placeholder="חפש… / search" dir="rtl"><ul id="dl"></ul></div>
+<script src="dict.js"></script><script src="gloss.js"></script>
+<script src="vendor/tesseract.min.js"></script>
+<script>
+const Q=/[״"׳'”“`’‘]/g, NIQ=/[\u0591-\u05C7]/g;
+const norm=s=>s.replace(NIQ,'').replace(Q,'');
+const RT={}, LIST=[];
+RT_RAW.trim().split('\n').forEach(l=>{const [a,f,e]=l.split('|');if(!e)return;const k=norm(a);const d=/[״"׳']/.test(a)?a:(a.length>1?a.slice(0,-1)+'״'+a.slice(-1):a+'׳');if(!RT[k]){RT[k]={a:d,f,e};LIST.push(RT[k])}});
+const GL={};GLOSS_RAW.trim().split('\n').forEach(l=>{const [h,e]=l.split('|');if(e)GL[norm(h)]=e});
+const PRE={'ו':'and ','ה':'the ','ב':'in ','ל':'to ','מ':'from ','ש':'that ','כ':'like ','ד':'of '};
+function look(k,map){if(map[k])return{p:'',v:map[k]};
+ for(let i=1;i<=2&&i<k.length-1;i++){const p=k.slice(0,i);if([...p].every(c=>PRE[c])&&map[k.slice(i)])return{p:[...p].map(c=>PRE[c]).join(''),v:map[k.slice(i)]}}return null}
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function run(){
+ const txt=document.getElementById('in').value.trim();const out=document.getElementById('out');
+ if(!txt){out.innerHTML='';return}
+ let heb=[],eng=[],found=[];
+ txt.split(/(\s+)/).forEach(tok=>{
+  if(/^\s+$/.test(tok)){heb.push(tok);return}
+  const m=tok.match(/^([^\u05D0-\u05EA]*)(.*?)([.,:;!?()\[\]\-–]*)$/);const core=m?m[2]:tok;
+  const k=norm(core);const isAb=Q.test(core);Q.lastIndex=0;
+  if(!/[\u05D0-\u05EA]/.test(k)){heb.push(esc(tok));eng.push(esc(tok));return}
+  let r=isAb?look(k,RT):null;
+  if(r){found.push(r.v);heb.push(esc(m[1])+`<span class="ab" title="${esc(r.v.f)} — ${esc(r.v.e)}">${esc(core)}</span>`+esc(m[3]));eng.push(`<b>${esc(r.p+r.v.e)}</b>`);return}
+  const g=look(k,GL);
+  if(g){heb.push(esc(tok));eng.push(esc(g.p+g.v));return}
+  if(isAb){heb.push(`<span class="uk">${esc(tok)}</span>`);eng.push(`<i>[${esc(core)}?]</i>`);return}
+  heb.push(esc(tok));eng.push(`<i>${esc(core)}</i>`);
+ });
+ const uniq=[...new Set(found)];
+ out.innerHTML=`<div class="card"><h3>Text</h3><div class="heb">${heb.join('')}</div><div class="eng">${eng.join(' ')}</div></div>`+
+ (uniq.length?`<div class="card"><h3>Abbreviations found (${uniq.length})</h3><ul>${uniq.map(v=>`<li><div class="a">${esc(v.a)}</div><div class="f">${esc(v.f)}</div><div class="e">${esc(v.e)}</div></li>`).join('')}</ul></div>`:'')+
+ `<p class="sub">Gold = expanded abbreviation · red = abbreviation not in dictionary · grey italics = word not in glossary.</p>`;
+}
+document.getElementById('go').onclick=run;
+document.getElementById('demo').onclick=()=>{document.getElementById('in').value='אמר ר׳ יוחנן, עיין רש״י ד״ה ואם תאמר ותוס׳ שם, וכן פסק הרמב״ם בהל׳ שבת. וצ״ע מדברי הזוה״ק והאריז״ל בענין זו״נ. בס״ד ואכי״ר';run()};
+// dictionary list
+function renderDL(q){q=norm(q||'');const dl=document.getElementById('dl');
+ const rows=LIST.filter(v=>!q||norm(v.a).includes(q)||v.f.includes(q)||v.e.toLowerCase().includes(q.toLowerCase())).slice(0,q?200:40);
+ dl.innerHTML=rows.map(v=>`<li><div class="a">${esc(v.a)}</div><div class="f">${esc(v.f)}</div><div class="e">${esc(v.e)}</div></li>`).join('')+(q?'':`<li class="e">${LIST.length} entries — type to search</li>`)}
+document.getElementById('search').oninput=e=>renderDL(e.target.value);renderDL();
+// OCR
+let worker;const st=document.getElementById('status'),pg=document.getElementById('prog');
+async function getWorker(){if(worker)return worker;
+ worker=await Tesseract.createWorker('heb',1,{workerPath:'vendor/worker.min.js',corePath:'vendor/',langPath:'vendor/',gzip:true,
+  logger:m=>{if(m.progress!=null){pg.style.display='block';pg.value=m.progress}st.textContent=m.status}});return worker}
+async function ocr(file){if(!file)return;const url=URL.createObjectURL(file);const pv=document.getElementById('preview');pv.src=url;pv.style.display='block';
+ try{st.textContent='Loading Hebrew reader…';const w=await getWorker();const {data}=await w.recognize(file);
+  document.getElementById('in').value=data.text.trim();st.textContent=`Read done (confidence ${Math.round(data.confidence)}%). Fix any errors, then tap Expand.`;run()}
+ catch(e){st.textContent='Could not read photo: '+e.message}finally{pg.style.display='none'}}
+['cam','pick'].forEach(id=>document.getElementById(id).onchange=e=>{ocr(e.target.files[0]);e.target.value=''});
+if(location.hash=='#demo')document.getElementById('demo').click();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>
