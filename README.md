@@ -14,3 +14,7 @@ Photograph or paste Hebrew Torah text; abbreviations (ר״ת) are expanded and h
 
 ## Files
 `index.html` app · `dict.js` abbreviations (`abbr|full Hebrew|English`) · `gloss.js` word glossary · `vendor/` Tesseract.js 5 + Hebrew model (offline OCR) · `sw.js` offline cache.
+
+
+## Rashi script
+A "Script" toggle picks the OCR model: **Rashi script** (default; `vendor/heb_rashi.traineddata.gz`, the fast model from https://gitlab.com/pninim.org/tessdata_heb_rashi, Apache-2.0) or **Square Hebrew** (`heb`). Photos are grayscaled, contrast-stretched and resized before OCR. Crop to one column (Rashi or Tosafot) for best results.
